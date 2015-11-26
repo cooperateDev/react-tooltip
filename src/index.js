@@ -7,26 +7,34 @@ import cssStyle from './style'
 
 export default class ReactTooltip extends Component {
 
-  _bind (...handlers) {
-    handlers.forEach(handler => this[handler] = this[handler].bind(this))
-  }
-
   static displayName = 'ReactTooltip'
 
-  static hide () {
-    window.dispatchEvent(new window.Event('__react_tooltip_hide_event'))
-  }
-
-  static rebuild () {
-    window.dispatchEvent(new window.Event('__react_tooltip_rebuild_event'))
-  }
+  /**
+   * Class method
+   * @see ReactTooltip.hide() && ReactTooltup.rebuild()
+   */
+  static hide () { window.dispatchEvent(new window.Event('__react_tooltip_hide_event')) }
+  static rebuild () { window.dispatchEvent(new window.Event('__react_tooltip_rebuild_event')) }
 
   static eventHideMark = `hide${Date.now()}`
   static eventRebuildMark = `rebuild${Date.now()}`
 
+  globalHide () {
+    if (this.mount) {
+      this.hideTooltip()
+    }
+  }
+
+  globalRebuild () {
+    if (this.mount) {
+      this.unbindListener()
+      this.bindListener()
+    }
+  }
+
   constructor (props) {
     super(props)
-    this._bind('showTooltip', 'updateTooltip', 'hideTooltip', 'checkStatus', 'onWindowResize')
+    this._bind('showTooltip', 'updateTooltip', 'hideTooltip', 'checkStatus')
     this.mount = true
     this.state = {
       show: false,
@@ -46,6 +54,11 @@ export default class ReactTooltip extends Component {
     }
   }
 
+  /* Bind this with method */
+  _bind (...handlers) {
+    handlers.forEach(handler => this[handler] = this[handler].bind(this))
+  }
+
   componentDidMount () {
     this.bindListener()
     this.setStyleHeader()
@@ -55,37 +68,6 @@ export default class ReactTooltip extends Component {
 
     window.removeEventListener('__react_tooltip_rebuild_event', this.globalRebuild)
     window.addEventListener('__react_tooltip_rebuild_event', ::this.globalRebuild, false)
-
-    if (this.props.watchWindow) {
-      window.removeEventListener('resize', this.onWindowResize)
-      window.addEventListener('resize', ::this.onWindowResize, false)
-    }
-  }
-
-  /**
-   *  Method for window.addEventListener
-   **/
-  globalHide () {
-    if (this.mount) {
-      this.hideTooltip()
-    }
-  }
-
-  globalRebuild () {
-    if (this.mount) {
-      this.unbindListener()
-      this.bindListener()
-    }
-  }
-
-  componentWillUnmount () {
-    this.unbindListener()
-    this.mount = false
-    window.removeEventListener('__react_tooltip_hide_event', this.globalHide)
-    window.removeEventListener('__react_tooltip_rebuild_event', this.globalRebuild)
-    if (this.props.watchWindow) {
-      window.removeEventListener('resize', this.onWindowResize)
-    }
   }
 
   componentWillUpdate () {
@@ -97,7 +79,14 @@ export default class ReactTooltip extends Component {
     this.bindListener()
   }
 
-  getTargetArray () {
+  componentWillUnmount () {
+    this.unbindListener()
+    this.mount = false
+    window.removeEventListener('__react_tooltip_hide_event', this.globalHide)
+    window.removeEventListener('__react_tooltip_rebuild_event', this.globalRebuild)
+  }
+
+  bindListener () {
     const {id} = this.props
     let targetArray
 
@@ -107,36 +96,13 @@ export default class ReactTooltip extends Component {
       targetArray = document.querySelectorAll('[data-tip][data-for="' + id + '"]')
     }
 
-    return targetArray
-  }
-
-  onWindowResize () {
-    if(!this.mount) return;
-    let targetArray = this.getTargetArray()
-
-    for (let i = 0; i < targetArray.length; i++) {
-      if (targetArray[i].getAttribute('currentItem') === 'true') {
-        // todo: timer for performance
-        let {x,y} = this.getPosition(targetArray[i])
-        findDOMNode(this).style.left = x + 'px'
-        findDOMNode(this).style.top = y + 'px'
-        /*this.setState({
-          x,
-          y
-        })*/
-      }
-    }
-  }
-
-  bindListener () {
-    let targetArray = this.getTargetArray()
-
+    let dataEvent
     for (let i = 0; i < targetArray.length; i++) {
       targetArray[i].setAttribute('currentItem', 'false')
-
-      if (this.state.event) {
-        targetArray[i].removeEventListener(this.state.event, this.checkStatus)
-        targetArray[i].addEventListener(this.state.event, this.checkStatus, false)
+      dataEvent = this.state.event || targetArray[i].getAttribute('data-event')
+      if (dataEvent) {
+        targetArray[i].removeEventListener(dataEvent, this.checkStatus)
+        targetArray[i].addEventListener(dataEvent, this.checkStatus, false)
       } else {
         targetArray[i].removeEventListener('mouseenter', this.showTooltip)
         targetArray[i].addEventListener('mouseenter', this.showTooltip, false)
@@ -163,7 +129,14 @@ export default class ReactTooltip extends Component {
   }
 
   setUntargetItems (currentTarget) {
-    let targetArray = this.getTargetArray()
+    const {id} = this.props
+    let targetArray
+
+    if (id === undefined) {
+      targetArray = document.querySelectorAll('[data-tip]:not([data-for])')
+    } else {
+      targetArray = document.querySelectorAll('[data-tip][data-for="' + id + '"]')
+    }
 
     for (let i = 0; i < targetArray.length; i++) {
       if (currentTarget !== targetArray[i]) {
@@ -176,9 +149,12 @@ export default class ReactTooltip extends Component {
 
   unbindListener () {
     let targetArray = document.querySelectorAll('[data-tip]')
+    let dataEvent
+
     for (let i = 0; i < targetArray.length; i++) {
-      if (this.state.event) {
-        targetArray[i].removeEventListener(this.state.event, this.checkStatus)
+      dataEvent = this.state.event || targetArray[i].getAttribute('data-event')
+      if (dataEvent) {
+        targetArray[i].removeEventListener(dataEvent, this.checkStatus)
       } else {
         targetArray[i].removeEventListener('mouseenter', this.showTooltip)
         targetArray[i].removeEventListener('mousemove', this.updateTooltip)
@@ -217,10 +193,10 @@ export default class ReactTooltip extends Component {
       type: e.currentTarget.getAttribute('data-type') ? e.currentTarget.getAttribute('data-type') : (this.props.type ? this.props.type : 'dark'),
       effect: e.currentTarget.getAttribute('data-effect') ? e.currentTarget.getAttribute('data-effect') : (this.props.effect ? this.props.effect : 'float'),
       offset: e.currentTarget.getAttribute('data-offset') ? e.currentTarget.getAttribute('data-offset') : (this.props.offset ? this.props.offset : {}),
-      extraClass,
-      multiline,
       html: e.currentTarget.getAttribute('data-html') ? e.currentTarget.getAttribute('data-html') : (this.props.html ? this.props.html : false),
-      delayHide: e.currentTarget.getAttribute('data-delay-hide') ? e.currentTarget.getAttribute('data-delay-hide') : (this.props.delayHide ? this.props.delayHide : 0)
+      delayHide: e.currentTarget.getAttribute('data-delay-hide') ? e.currentTarget.getAttribute('data-delay-hide') : (this.props.delayHide ? this.props.delayHide : 0),
+      extraClass,
+      multiline
     })
     this.updateTooltip(e)
   }
@@ -230,6 +206,8 @@ export default class ReactTooltip extends Component {
    */
   updateTooltip (e) {
     if (this.trim(this.state.placeholder).length > 0) {
+      const {place} = this.state
+      const node = findDOMNode(this)
       if (this.state.effect === 'float') {
         // const offsetY = e.clientY
         this.setState({
@@ -238,7 +216,28 @@ export default class ReactTooltip extends Component {
           y: e.clientY
         })
       } else if (this.state.effect === 'solid') {
-        let {x,y} = this.getPosition(e.currentTarget)
+        const boundingClientRect = e.currentTarget.getBoundingClientRect()
+        const targetTop = boundingClientRect.top
+        const targetLeft = boundingClientRect.left
+        const tipWidth = node.clientWidth
+        const tipHeight = node.clientHeight
+        const targetWidth = e.currentTarget.clientWidth
+        const targetHeight = e.currentTarget.clientHeight
+        let x
+        let y
+        if (place === 'top') {
+          x = targetLeft - (tipWidth / 2) + (targetWidth / 2)
+          y = targetTop - tipHeight - 8
+        } else if (place === 'bottom') {
+          x = targetLeft - (tipWidth / 2) + (targetWidth / 2)
+          y = targetTop + targetHeight + 8
+        } else if (place === 'left') {
+          x = targetLeft - tipWidth - 6
+          y = targetTop + (targetHeight / 2) - (tipHeight / 2)
+        } else if (place === 'right') {
+          x = targetLeft + targetWidth + 6
+          y = targetTop + (targetHeight / 2) - (tipHeight / 2)
+        }
         this.setState({
           show: true,
           x,
@@ -246,35 +245,6 @@ export default class ReactTooltip extends Component {
         })
       }
     }
-  }
-
-  getPosition (currentTarget) {
-    const {place} = this.state
-    const node = findDOMNode(this)
-    const boundingClientRect = currentTarget.getBoundingClientRect()
-    const targetTop = boundingClientRect.top
-    const targetLeft = boundingClientRect.left
-    const tipWidth = node.clientWidth
-    const tipHeight = node.clientHeight
-    const targetWidth = currentTarget.clientWidth
-    const targetHeight = currentTarget.clientHeight
-    let x
-    let y
-    if (place === 'top') {
-      x = targetLeft - (tipWidth / 2) + (targetWidth / 2)
-      y = targetTop - tipHeight - 8
-    } else if (place === 'bottom') {
-      x = targetLeft - (tipWidth / 2) + (targetWidth / 2)
-      y = targetTop + targetHeight + 8
-    } else if (place === 'left') {
-      x = targetLeft - tipWidth - 6
-      y = targetTop + (targetHeight / 2) - (tipHeight / 2)
-    } else if (place === 'right') {
-      x = targetLeft + targetWidth + 6
-      y = targetTop + (targetHeight / 2) - (tipHeight / 2)
-    }
-
-    return { x, y }
   }
 
   /**
@@ -410,7 +380,7 @@ export default class ReactTooltip extends Component {
     } else {
       const content = this.props.children ? this.props.children : placeholder
       return (
-        <span className={tooltipClass + ' ' + extraClass} data-id='tooltip'>{content}</span>
+        <div className={tooltipClass + ' ' + extraClass} data-id='tooltip'>{content}</div>
       )
     }
   }
@@ -451,5 +421,6 @@ ReactTooltip.propTypes = {
   class: PropTypes.string,
   id: PropTypes.string,
   html: PropTypes.bool,
-  delayHide: PropTypes.number
+  delayHide: PropTypes.number,
+  event: PropTypes.any
 }
