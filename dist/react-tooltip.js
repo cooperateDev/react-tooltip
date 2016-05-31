@@ -101,6 +101,7 @@ var ReactTooltip = function (_Component) {
       delayHide: 0,
       delayShow: 0,
       event: props.event || null,
+      eventOff: props.eventOff || null,
       isCapture: props.isCapture || false
     };
     _this.delayShowLoop = null;
@@ -171,14 +172,25 @@ var ReactTooltip = function (_Component) {
       var targetArray = this.getTargetArray();
 
       var dataEvent = void 0;
+      var dataEventOff = void 0;
       for (var i = 0; i < targetArray.length; i++) {
         if (targetArray[i].getAttribute('currentItem') === null) {
           targetArray[i].setAttribute('currentItem', 'false');
         }
         dataEvent = this.state.event || targetArray[i].getAttribute('data-event');
         if (dataEvent) {
-          targetArray[i].removeEventListener(dataEvent, this.checkStatus);
-          targetArray[i].addEventListener(dataEvent, this.checkStatus, false);
+          dataEventOff = this.state.eventOff || targetArray[i].getAttribute('data-event-off');
+          // if off event is specified, we will show tip on data-event and hide it on data-event-off
+          if (dataEventOff) {
+            targetArray[i].removeEventListener(dataEvent, this.showTooltip);
+            targetArray[i].addEventListener(dataEvent, this.showTooltip, false);
+
+            targetArray[i].removeEventListener(dataEventOff, this.hideTooltip);
+            targetArray[i].addEventListener(dataEventOff, this.hideTooltip, false);
+          } else {
+            targetArray[i].removeEventListener(dataEvent, this.checkStatus);
+            targetArray[i].addEventListener(dataEvent, this.checkStatus, false);
+          }
         } else {
           targetArray[i].removeEventListener('mouseenter', this.showTooltip);
           targetArray[i].addEventListener('mouseenter', this.showTooltip, false);
@@ -462,25 +474,6 @@ var ReactTooltip = function (_Component) {
       var defaultLeftX = targetLeft - tipWidth - 6;
       var defaultRightX = targetLeft + targetWidth + 6;
 
-      var parentTop = 0;
-      var parentLeft = 0;
-
-      if (this.props.checkParentTransform) {
-        var currentParent = currentTarget.parentElement;
-
-        while (currentParent) {
-          if (currentParent.style.transform.length > 0) {
-            break;
-          }
-          currentParent = currentParent.parentElement;
-        }
-
-        if (currentParent) {
-          parentTop = currentParent.getBoundingClientRect().top;
-          parentLeft = currentParent.getBoundingClientRect().left;
-        }
-      }
-
       var outsideTop = function outsideTop() {
         return defaultTopY - 10 < 0;
       };
@@ -542,17 +535,17 @@ var ReactTooltip = function (_Component) {
       };
 
       if (place === 'top') {
-        x = targetLeft - tipWidth / 2 + targetWidth / 2 - parentLeft;
-        y = getTopPositionY() - parentTop;
+        x = targetLeft - tipWidth / 2 + targetWidth / 2;
+        y = getTopPositionY();
       } else if (place === 'bottom') {
-        x = targetLeft - tipWidth / 2 + targetWidth / 2 - parentLeft;
-        y = getBottomPositionY() - parentTop;
+        x = targetLeft - tipWidth / 2 + targetWidth / 2;
+        y = getBottomPositionY();
       } else if (place === 'left') {
-        x = getLeftPositionX() - parentLeft;
-        y = targetTop + targetHeight / 2 - tipHeight / 2 - parentTop;
+        x = getLeftPositionX();
+        y = targetTop + targetHeight / 2 - tipHeight / 2;
       } else if (place === 'right') {
-        x = getRightPositionX() - parentLeft;
-        y = targetTop + targetHeight / 2 - tipHeight / 2 - parentTop;
+        x = getRightPositionX();
+        y = targetTop + targetHeight / 2 - tipHeight / 2;
       }
 
       return { x: x, y: y };
@@ -776,6 +769,7 @@ ReactTooltip.propTypes = {
   delayHide: _react.PropTypes.number,
   delayShow: _react.PropTypes.number,
   event: _react.PropTypes.any,
+  eventOff: _react.PropTypes.any,
   watchWindow: _react.PropTypes.bool,
   isCapture: _react.PropTypes.bool
 };
