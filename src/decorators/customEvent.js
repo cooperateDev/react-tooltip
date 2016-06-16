@@ -6,7 +6,7 @@
  * - `eventOff` {String}
  */
 
-const checkStatus = function (e) {
+const checkStatus = function (dataEventOff, e) {
   const {show} = this.state
   const dataIsCapture = e.currentTarget.getAttribute('data-iscapture')
   const isCapture = dataIsCapture && dataIsCapture === 'true' || this.state.isCapture
@@ -14,17 +14,15 @@ const checkStatus = function (e) {
 
   if (!isCapture) e.stopPropagation()
   if (show && currentItem === 'true') {
-    this.hideTooltip(e)
+    if (!dataEventOff) this.hideTooltip(e)
   } else {
     e.currentTarget.setAttribute('currentItem', 'true')
-
+    setUntargetItems(e.currentTarget, this.getTargetArray())
     this.showTooltip(e)
-    setUntargetItems(e.currentTarget)
   }
 }
 
-const setUntargetItems = function (currentTarget) {
-  let targetArray = this.getTargetArray()
+const setUntargetItems = function (currentTarget, targetArray) {
   for (let i = 0; i < targetArray.length; i++) {
     if (currentTarget !== targetArray[i]) {
       targetArray[i].setAttribute('currentItem', 'false')
@@ -41,26 +39,26 @@ export default function (target) {
   }
 
   /* Bind listener for custom event */
-  target.prototype.customBindListener = function () {
+  target.prototype.customBindListener = function (ele) {
     const {event, eventOff} = this.state
-    const dataEvent = event || target.getAttribute('data-event')
-    const dataEventOff = eventOff || target.getAttribute('data-event-off')
+    const dataEvent = event || ele.getAttribute('data-event')
+    const dataEventOff = eventOff || ele.getAttribute('data-event-off')
 
-    target.removeEventListener(dataEvent, checkStatus)
-    target.addEventListener(dataEvent, checkStatus, false)
+    ele.removeEventListener(dataEvent, checkStatus)
+    ele.addEventListener(dataEvent, checkStatus.bind(this, dataEventOff), false)
     if (dataEventOff) {
-      target.removeEventListener(dataEventOff, this.hideTooltip)
-      target.addEventListener(dataEventOff, ::this.hideTooltip, false)
+      ele.removeEventListener(dataEventOff, this.hideTooltip)
+      ele.addEventListener(dataEventOff, ::this.hideTooltip, false)
     }
   }
 
   /* Unbind listener for custom event */
-  target.prototype.customUnbindListener = function () {
+  target.prototype.customUnbindListener = function (ele) {
     const {event, eventOff} = this.state
-    const dataEvent = event || target.getAttribute('data-event')
-    const dataEventOff = eventOff || target.getAttribute('data-event-off')
+    const dataEvent = event || ele.getAttribute('data-event')
+    const dataEventOff = eventOff || ele.getAttribute('data-event-off')
 
-    target.removeEventListener(dataEvent, checkStatus)
-    if (dataEventOff) target.removeEventListener(dataEventOff, this.hideTooltip)
+    ele.removeEventListener(dataEvent, checkStatus)
+    if (dataEventOff) ele.removeEventListener(dataEventOff, this.hideTooltip)
   }
 }

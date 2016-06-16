@@ -1,6 +1,5 @@
 /* For Standard.js lint checking */
 /* eslint-env mocha */
-
 import React from 'react'
 import { mount } from 'enzyme'
 import chai, { expect } from 'chai'
@@ -12,22 +11,27 @@ import ReactTooltip from '../src'
 chai.use(chaiEnzyme())
 
 describe('Global methods', () => {
-  it('should be hided by invoking ReactTooltip.hide', () => {
+  before(() => {
+    sinon.spy(ReactTooltip.prototype, 'hideTooltip')
+    sinon.spy(ReactTooltip.prototype, 'globalRebuild')
+  })
+
+  it('should be hided by invoking ReactTooltip.hide', done => {
     const wrapper = mount(<ReactTooltip />)
     wrapper.setState({ show: true })
-    sinon.spy(ReactTooltip.prototype, 'hideTooltip')
     ReactTooltip.hide()
     setImmediate(() => {
       expect(ReactTooltip.prototype.hideTooltip.calledOnce).to.equal(true)
       expect(wrapper).to.have.state('show', false)
+      done()
     })
   })
 
-  it('should invoke globalRebuild when using ReactTooltip.rebuild', () => {
-    sinon.spy(ReactTooltip.prototype, 'globalRebuild')
+  it('should invoke globalRebuild when using ReactTooltip.rebuild', done => {
     ReactTooltip.rebuild()
     setImmediate(() => {
       expect(ReactTooltip.prototype.globalRebuild.calledOnce).to.equal(true)
+      done()
     })
   })
 })
